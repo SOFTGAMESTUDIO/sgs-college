@@ -304,16 +304,7 @@ export default function LibraryStudent() {
                 <FaExclamationCircle className="text-red-500 text-2xl" />
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow p-4 border-l-4 border-green-500">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-500 text-sm">Books Read</p>
-                  <p className="text-2xl font-bold">{totalBooksRead}</p>
-                  <p className="text-xs text-gray-400 mt-1">Successfully returned</p>
-                </div>
-                <FaHistory className="text-green-500 text-2xl" />
-              </div>
-            </div>
+            
           </div>
 
           {/* ================= TABS ================= */}
@@ -336,15 +327,7 @@ export default function LibraryStudent() {
               <FaClock />
               Issued Books ({issuedBooks.length})
             </button>
-            <button
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${activeTab === "history" 
-                ? "bg-blue-100 text-blue-700" 
-                : "text-gray-600 hover:text-gray-800"}`}
-              onClick={() => setActiveTab("history")}
-            >
-              <FaHistory />
-              History
-            </button>
+           
           </div>
 
           {/* ================= ISSUED BOOKS TAB ================= */}
@@ -582,99 +565,7 @@ export default function LibraryStudent() {
             </div>
           )}
 
-          {/* ================= HISTORY TAB ================= */}
-          {activeTab === "history" && (
-            <div className="bg-white rounded-xl shadow overflow-hidden">
-              <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <FaHistory className="text-green-500" />
-                  Returned Books History
-                </h2>
-                <div className="flex items-center gap-2">
-                  {loading.returned && <FaSpinner className="animate-spin text-blue-500" />}
-                  <span className="text-sm text-gray-500">
-                    {filteredReturnedBooks.length} books returned
-                  </span>
-                </div>
-              </div>
-              
-              {filteredReturnedBooks.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <FaHistory className="text-4xl mx-auto mb-3 text-gray-300" />
-                  <p className="text-lg">No history yet</p>
-                  <p className="text-sm mt-1">Returned books will appear here</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Book Details
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Issue & Return
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Issued By
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredReturnedBooks.map(book => (
-                        <tr key={book.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="font-medium text-gray-900">{book.bookTitle}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm">
-                                <FaCalendarAlt className="text-gray-400" />
-                                <span>Issued: {formatDate(book.issueDate)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <FaRegCalendarCheck className="text-green-400" />
-                                <span className="text-gray-600">
-                                  Returned: {formatDate(book.returnDate)}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <FaUserTie className="text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                {book.teacherName}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">
-                              ID: {book.teacherId}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              <FaCheckCircle className="mr-1" />
-                              Returned
-                            </span>
-                            {book.fine > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Fine paid: ₹{book.fine}
-                              </p>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
+      
 
           {/* ================= QUICK ACTIONS ================= */}
           <div className="bg-white rounded-xl shadow p-4">

@@ -12,14 +12,15 @@ import {
   where,
   orderBy,
   getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import Layout from "../../components/Layout";
 import { useAuth } from "../../auth/authProvider";
 import { toast } from "react-toastify";
-import { 
-  FaSearch, 
-  FaBookReader, 
-  FaUserGraduate, 
+import {
+  FaSearch,
+  FaBookReader,
+  FaUserGraduate,
   FaBook,
   FaCalendarAlt,
   FaCheckCircle,
@@ -53,6 +54,8 @@ export default function LibraryTeacher() {
   const [filteredStudents, setFilteredStudents] = useState([]);
   const [selectedStudentObj, setSelectedStudentObj] = useState(null);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
+  const [issuedSearch, setIssuedSearch] = useState("");
+
 
   const studentDropdownRef = useRef(null);
   const studentInputRef = useRef(null);
@@ -67,7 +70,7 @@ export default function LibraryTeacher() {
   /* ================= FETCH TEACHER DATA ================= */
   const fetchTeacherData = useCallback(async () => {
     if (!user) return;
-    
+
     setLoading(prev => ({ ...prev, teacher: true }));
     try {
       const teacherQuery = query(
@@ -128,7 +131,7 @@ export default function LibraryTeacher() {
 
   const fetchIssuedBooks = async () => {
     if (!teacher) return;
-    
+
     try {
       // Using teacher.id as the key to filter issued books
       const issuedQuery = query(
@@ -172,6 +175,7 @@ export default function LibraryTeacher() {
   const handleSelectStudent = (student) => {
     setSelectedStudent(student.docId);
     setSelectedStudentObj(student);
+    setIssuedSearch(student);
     setStudentSearch(`${student.name} (${student.rollNo})`);
     setShowStudentDropdown(false);
     toast.info(`Selected: ${student.name}`);
@@ -211,7 +215,7 @@ export default function LibraryTeacher() {
     const alreadyIssued = issuedBooks.find(
       ib => ib.studentRollNo === student.rollNo && ib.bookId === book.docId && ib.status === "issued"
     );
-    
+
     if (alreadyIssued) {
       toast.error(`${student.name} has already borrowed "${book.title}"`);
       return;
@@ -221,7 +225,7 @@ export default function LibraryTeacher() {
     const studentIssuedBooks = issuedBooks.filter(
       ib => ib.studentRollNo === student.rollNo && ib.status === "issued"
     );
-    
+
     if (studentIssuedBooks.length >= 5) {
       toast.error(`${student.name} has reached the maximum limit of 5 books`);
       return;
@@ -237,18 +241,18 @@ export default function LibraryTeacher() {
       await addDoc(collection(db, "issued_books"), {
         bookId: book.docId,
         bookTitle: book.title,
-        
+
         // ✅ STUDENT INFORMATION
         studentRollNo: student.rollNo,     // 🔥 MAIN KEY
         studentName: student.name,
         studentBranch: student.branch || student.course || "N/A",
-        
+
         // ✅ TEACHER INFORMATION  
         teacherId: teacher.id,             // 🔥 MAIN KEY
         teacherName: teacher.name,
         teacherUid: user.uid,
         teacherEmail: user.email,
-        
+
         // ✅ ISSUANCE DETAILS
         issueDate: new Date(),
         dueDate: dueDate,
@@ -256,7 +260,7 @@ export default function LibraryTeacher() {
         status: "issued",
         fine: 0,
         renewalCount: 0,
-        
+
         createdAt: serverTimestamp(),
       });
 
@@ -296,11 +300,7 @@ export default function LibraryTeacher() {
 
     try {
       // Update issued book record
-      await updateDoc(doc(db, "issued_books", issuedBook.id), {
-        status: "returned",
-        returnDate: new Date(),
-        updatedAt: serverTimestamp(),
-      });
+      await deleteDoc(doc(db, "issued_books", issuedBook.id));
 
       // Update book quantities
       await updateDoc(doc(db, "books", issuedBook.bookId), {
@@ -348,11 +348,21 @@ export default function LibraryTeacher() {
     b.description?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredIssuedBooks = issuedBooks.filter(ib =>
-    ib.bookTitle.toLowerCase().includes(search.toLowerCase()) ||
-    ib.studentName.toLowerCase().includes(search.toLowerCase()) ||
-    ib.studentRollNo?.toLowerCase().includes(search.toLowerCase())
+const filteredIssuedBooks = issuedBooks.filter(ib => {
+  if (!issuedSearch.trim()) return true;
+  
+  const searchTerm = issuedSearch.toLowerCase().trim();
+  
+  return (
+    (ib.bookTitle && ib.bookTitle.toLowerCase().includes(searchTerm)) ||
+    (ib.studentName && ib.studentName.toLowerCase().includes(searchTerm)) ||
+    (ib.studentRollNo && ib.studentRollNo.toLowerCase().includes(searchTerm)) ||
+    (ib.studentBranch && ib.studentBranch.toLowerCase().includes(searchTerm))
   );
+});
+
+
+
 
   /* ================= STATS ================= */
   const availableBooksCount = books.reduce((sum, book) => sum + (book.availableQuantity || 0), 0);
@@ -417,11 +427,10 @@ export default function LibraryTeacher() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Librarian Status</p>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                    teacher.isLibrarian 
-                      ? "bg-green-100 text-green-800" 
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${teacher.isLibrarian
+                      ? "bg-green-100 text-green-800"
                       : "bg-yellow-100 text-yellow-800"
-                  }`}>
+                    }`}>
                     {teacher.isLibrarian ? "Active Librarian" : "Teacher Only"}
                   </span>
                 </div>
@@ -466,8 +475,8 @@ export default function LibraryTeacher() {
           {/* ================= TABS ================= */}
           <div className="flex space-x-1 bg-white rounded-xl shadow p-1">
             <button
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${activeTab === "issue" 
-                ? "bg-blue-100 text-blue-700" 
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${activeTab === "issue"
+                ? "bg-blue-100 text-blue-700"
                 : "text-gray-600 hover:text-gray-800"}`}
               onClick={() => setActiveTab("issue")}
             >
@@ -475,8 +484,8 @@ export default function LibraryTeacher() {
               Issue Books
             </button>
             <button
-              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${activeTab === "issued" 
-                ? "bg-blue-100 text-blue-700" 
+              className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${activeTab === "issued"
+                ? "bg-blue-100 text-blue-700"
                 : "text-gray-600 hover:text-gray-800"}`}
               onClick={() => setActiveTab("issued")}
             >
@@ -485,7 +494,7 @@ export default function LibraryTeacher() {
             </button>
           </div>
 
-           {/* ================= QUICK ACTIONS ================= */}
+          {/* ================= QUICK ACTIONS ================= */}
           <div className="bg-white rounded-xl shadow p-4">
             <h3 className="font-semibold text-gray-800 mb-3">Quick Actions</h3>
             <div className="flex flex-wrap gap-3">
@@ -631,7 +640,7 @@ export default function LibraryTeacher() {
                       <FaTimes />
                     </button>
                   </div>
-                  
+
                   {/* Student Stats */}
                   <div className="mt-3 pt-3 border-t border-blue-200">
                     <div className="flex gap-4">
@@ -671,7 +680,7 @@ export default function LibraryTeacher() {
                   </span>
                 </div>
               </div>
-              
+
               {filteredBooks.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <FaBook className="text-4xl mx-auto mb-3 text-gray-300" />
@@ -730,11 +739,10 @@ export default function LibraryTeacher() {
                             <div className="flex flex-col gap-2">
                               <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-500">Available:</span>
-                                <span className={`font-semibold ${
-                                  book.availableQuantity === 0 
-                                    ? "text-red-600" 
+                                <span className={`font-semibold ${book.availableQuantity === 0
+                                    ? "text-red-600"
                                     : "text-green-600"
-                                }`}>
+                                  }`}>
                                   {book.availableQuantity || 0}
                                 </span>
                               </div>
@@ -753,11 +761,10 @@ export default function LibraryTeacher() {
                             <button
                               onClick={() => issueBook(book)}
                               disabled={book.availableQuantity === 0 || !selectedStudent || loading.issuing || !teacher}
-                              className={`px-4 py-2 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2 w-full ${
-                                book.availableQuantity === 0 || !selectedStudent || !teacher
+                              className={`px-4 py-2 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2 w-full ${book.availableQuantity === 0 || !selectedStudent || !teacher
                                   ? "bg-gray-400 cursor-not-allowed"
                                   : "bg-blue-600 hover:bg-blue-700"
-                              }`}
+                                }`}
                             >
                               {loading.issuing ? (
                                 <>
@@ -791,17 +798,39 @@ export default function LibraryTeacher() {
             </div>
           )}
 
-          {/* ================= ISSUED BOOKS LIST ================= */}
+          {/* ================= ISSUED BOOKS LIST (ISSUED TAB) ================= */}
           {activeTab === "issued" && (
             <div className="bg-white rounded-xl shadow overflow-hidden">
               <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <h2 className="text-lg font-semibold text-gray-800">
-                  Currently Issued Books
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    ({filteredIssuedBooks.length} books)
-                  </span>
-                </h2>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Currently Issued Books
+                    <span className="ml-2 text-sm font-normal text-gray-500">
+                      ({filteredIssuedBooks.length} books)
+                    </span>
+                  </h2>
+                </div>
                 <div className="flex items-center gap-2">
+                  {/* Search Input for Issued Books */}
+                  <div className="relative">
+                    <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by book, student, or roll number..."
+                      value={issuedSearch}
+                      onChange={e => setIssuedSearch(e.target.value)}
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {issuedSearch && (
+                      <button
+                        onClick={() => setIssuedSearch("")}
+                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                      >
+                        <FaTimes />
+                      </button>
+                    )}
+                  </div>
+
                   {loading.issuedBooks && <FaSpinner className="animate-spin text-blue-500" />}
                   {overdueBooks > 0 && (
                     <span className="text-sm text-red-600 bg-red-50 px-3 py-1 rounded-full">
@@ -810,12 +839,16 @@ export default function LibraryTeacher() {
                   )}
                 </div>
               </div>
-              
+
               {filteredIssuedBooks.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <FaBookReader className="text-4xl mx-auto mb-3 text-gray-300" />
-                  <p className="text-lg">No books currently issued</p>
-                  <p className="text-sm mt-1">Books issued by you will appear here</p>
+                  <p className="text-lg">
+                    {issuedSearch ? "No matching issued books found" : "No books currently issued"}
+                  </p>
+                  <p className="text-sm mt-1">
+                    {issuedSearch ? "Try a different search term" : "Books issued by you will appear here"}
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -838,14 +871,14 @@ export default function LibraryTeacher() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {filteredIssuedBooks.map(issuedBook => {
-                        const dueDate = issuedBook.dueDate?.toDate ? 
-                          issuedBook.dueDate.toDate() : 
+                        const dueDate = issuedBook.dueDate?.toDate ?
+                          issuedBook.dueDate.toDate() :
                           new Date(issuedBook.dueDate);
                         const isOverdue = dueDate < new Date();
-                        const daysOverdue = isOverdue ? 
-                          Math.ceil((new Date() - dueDate) / (1000 * 60 * 60 * 24)) : 
+                        const daysOverdue = isOverdue ?
+                          Math.ceil((new Date() - dueDate) / (1000 * 60 * 60 * 24)) :
                           0;
-                        
+
                         return (
                           <tr key={issuedBook.id} className={isOverdue ? "bg-red-50" : "hover:bg-gray-50"}>
                             <td className="px-4 py-3">
@@ -882,11 +915,10 @@ export default function LibraryTeacher() {
                               </div>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                                isOverdue
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${isOverdue
                                   ? "bg-red-100 text-red-800"
                                   : "bg-green-100 text-green-800"
-                              }`}>
+                                }`}>
                                 {isOverdue ? (
                                   <>
                                     <FaExclamationTriangle className="mr-1" />
@@ -925,7 +957,7 @@ export default function LibraryTeacher() {
             </div>
           )}
 
-         
+
 
         </div>
       </div>

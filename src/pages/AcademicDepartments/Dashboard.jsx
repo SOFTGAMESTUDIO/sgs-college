@@ -202,7 +202,7 @@ const totalIssuedQuantity = useMemo(() => {
                 <StatCard title="Students" value={counts.students} delta={`New this month: ${students.filter(s => { /* simple filter: createdAt exists within 30 days */ return false; }).length}`} icon={GraduationCap} color="green" />
                 <StatCard title="Subjects" value={counts.subjects} delta={`${subjects.length} unique`} icon={BookOpen} color="purple" />
                 <StatCard title="Books (Total)" value={counts.books} delta={`${recentBooks.length} recent`} icon={Book} color="purple" />
-                <StatCard title="Issued" value={counts.issuedBooks} delta={`Pending: ${issuedBooks.toString(issuedQuantity)}`} icon={Layers} color="blue" />
+                <StatCard title="Issued" value={counts.issuedBooks} delta={`Pending: ${issuedBooks.toString(totalIssuedQuantity)}`} icon={Layers} color="blue" />
                 <StatCard title="Income (6m)" value={`₹${paymentsChart.reduce((s, p) => s + p.total, 0).toLocaleString()}`} delta={`Last: ₹${paymentsChart[paymentsChart.length -1]?.total || 0}`} icon={DollarSign} color="green" />
               </div>
 

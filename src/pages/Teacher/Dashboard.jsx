@@ -226,7 +226,7 @@ export default function TeacherDashboard() {
                     {/* Account Admin Feature */}
                     {permissions.hasAccountAccess && (
                       <Link
-                        to="/admin/accounts"
+                        to="/teacher/accounts"
                         className="border border-green-200 rounded-xl p-5 hover:border-green-400 hover:shadow-md transition-all duration-300 hover:bg-green-50 group"
                       >
                         <div className="flex items-center mb-3">

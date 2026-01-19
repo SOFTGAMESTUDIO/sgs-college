@@ -76,17 +76,6 @@ export default function AccountAdmin() {
 
   // ==================== STUDENT MANAGEMENT ====================
   const [students, setStudents] = useState([]);
-  const [studentForm, setStudentForm] = useState({
-    docId: null,
-    name: "",
-    rollNo: "",
-    course: "",
-    semester: "",
-    email: "",
-    phone: "",
-    password: "123456",
-    isEditing: false,
-  });
 
   // ==================== FEE MANAGEMENT ====================
   const [feeStructures, setFeeStructures] = useState([]);
@@ -145,6 +134,7 @@ export default function AccountAdmin() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [selectedSemesterFilter, setSelectedSemesterFilter] = useState("all");
+  const [feeStructureSearch, setFeeStructureSearch] = useState("all");
   const [teacherSearch, setTeacherSearch] = useState("");
 
   // ==================== FETCH ALL DATA ====================
@@ -250,18 +240,6 @@ export default function AccountAdmin() {
     }
   };
 
-  const toggleAccountHandler = async (teacherId, value) => {
-    try {
-      await updateDoc(doc(db, "teachers", teacherId), {
-        accountHandler: value,
-        updatedAt: serverTimestamp(),
-      });
-      toast.success(`Teacher ${value ? "assigned as" : "removed from"} account handler`);
-      fetchTeachers();
-    } catch (error) {
-      toast.error("Failed to update account handler");
-    }
-  };
 
   const markSalaryPaid = async (teacherId, teacherName) => {
     try {
@@ -277,20 +255,6 @@ export default function AccountAdmin() {
     }
   };
 
-  const deleteTeacher = async (teacherId, teacherName) => {
-    if (!window.confirm(`Are you sure you want to delete ${teacherName}?`)) {
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(db, "teachers", teacherId));
-      toast.success(`Teacher ${teacherName} deleted successfully`);
-      fetchTeachers();
-    } catch (error) {
-      toast.error("Failed to delete teacher");
-      console.error(error);
-    }
-  };
 
   // ==================== STUDENT FUNCTIONS ====================
   const fetchStudents = async () => {
@@ -314,86 +278,8 @@ export default function AccountAdmin() {
     }
   };
 
-  const saveStudent = async () => {
-    if (!studentForm.name || !studentForm.rollNo || !studentForm.course || !studentForm.semester) {
-      toast.error("Please fill all required fields");
-      return;
-    }
 
-    try {
-      if (studentForm.isEditing && studentForm.docId) {
-        // Update existing student
-        await updateDoc(
-          doc(db, "students", studentForm.docId),
-          {
-            name: studentForm.name,
-            rollNo: studentForm.rollNo,
-            course: studentForm.course,
-            semester: Number(studentForm.semester),
-            email: studentForm.email || "",
-            phone: studentForm.phone || "",
-            updatedAt: serverTimestamp(),
-          }
-        );
-        toast.success("Student updated successfully");
-      } else {
-        // Check if roll number already exists
-        const existingStudent = students.find(s => s.rollNo === studentForm.rollNo);
-        if (existingStudent) {
-          toast.error("Student with this roll number already exists");
-          return;
-        }
 
-        // Add new student
-        await addDoc(collection(db, "students"), {
-          name: studentForm.name,
-          rollNo: studentForm.rollNo,
-          course: studentForm.course,
-          semester: Number(studentForm.semester),
-          email: studentForm.email || "",
-          phone: studentForm.phone || "",
-          feeStatus: {},
-          optionalFees: {},
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        toast.success("Student added successfully");
-      }
-
-      // Reset form
-      setStudentForm({
-        docId: null,
-        name: "",
-        rollNo: "",
-        course: "",
-        semester: "",
-        email: "",
-        phone: "",
-        password: "123456",
-        isEditing: false,
-      });
-
-      fetchStudents();
-    } catch (error) {
-      toast.error(`Failed to ${studentForm.isEditing ? 'update' : 'add'} student`);
-      console.error(error);
-    }
-  };
-
-  const deleteStudent = async (studentId, studentName) => {
-    if (!window.confirm(`Are you sure you want to delete ${studentName}?`)) {
-      return;
-    }
-
-    try {
-      await deleteDoc(doc(db, "students", studentId));
-      toast.success(`Student ${studentName} deleted successfully`);
-      fetchStudents();
-    } catch (error) {
-      toast.error("Failed to delete student");
-      console.error(error);
-    }
-  };
 
   // ==================== OPTIONAL FEES MANAGEMENT ====================
   const toggleOptionalFee = async (studentId, feeType, semester) => {
@@ -578,7 +464,7 @@ export default function AccountAdmin() {
         status: "paid",
         remarks: paymentForm.remarks || "",
         paymentDate: new Date(),
-        processedBy: "Admin",
+        processedBy: teachers.id, 
         createdAt: serverTimestamp(),
       };
 
@@ -722,6 +608,39 @@ export default function AccountAdmin() {
     return true;
   });
 
+
+const filteredFeeStructures = feeStructures.filter((fee) => {
+  // Semester filter
+  if (
+    selectedSemesterFilter !== "all" &&
+    fee.semester.toString() !== selectedSemesterFilter
+  ) {
+    return false;
+  }
+
+  // Fee type filter
+  if (
+    feeStructureSearch !== "all" &&
+    fee.feeType !== feeStructureSearch
+  ) {
+    return false;
+  }
+
+  // Search text (fee type + description)
+  if (searchTerm) {
+    const search = searchTerm.toLowerCase();
+    return (
+      fee.feeType.toLowerCase().includes(search) ||
+      (fee.description || "").toLowerCase().includes(search)
+    );
+  }
+
+  return true;
+});
+
+
+
+
   // Get unique departments from students and teachers
   const studentDepartments = [...new Set(students.map(s => s.course).filter(Boolean))];
   const teacherDepartments = [...new Set(teachers.map(t => t.department).filter(Boolean))];
@@ -769,7 +688,7 @@ export default function AccountAdmin() {
 
   // Get applicable fees for a student in a semester
   const getApplicableFees = (student, semester) => {
-    return feeStructures.filter(fee => 
+    return filteredFeeStructures.filter(fee => 
       parseInt(fee.semester) === parseInt(semester) && 
       isFeeApplicable(student, fee.feeType, semester.toString())
     );
@@ -1096,94 +1015,7 @@ export default function AccountAdmin() {
             {/* ================= STUDENT MANAGEMENT TAB ================= */}
             {activeTab === "students" && (
               <div className="p-6 space-y-6">
-                {/* Add/Edit Student Form */}
-                <div className="bg-gray-50 rounded-xl p-5 border border-gray-300">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                    <FaPlus />
-                    {studentForm.isEditing ? "Edit Student" : "Add New Student"}
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Full Name *"
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.name}
-                      onChange={(e) => setStudentForm({...studentForm, name: e.target.value})}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Roll Number *"
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.rollNo}
-                      onChange={(e) => setStudentForm({...studentForm, rollNo: e.target.value})}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Course/Department *"
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.course}
-                      onChange={(e) => setStudentForm({...studentForm, course: e.target.value})}
-                    />
-                    <select
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.semester}
-                      onChange={(e) => setStudentForm({...studentForm, semester: e.target.value})}
-                    >
-                      <option value="">Select Semester</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                        <option key={sem} value={sem}>Semester {sem}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <input
-                      type="email"
-                      placeholder="Email (optional)"
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.email}
-                      onChange={(e) => setStudentForm({...studentForm, email: e.target.value})}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Phone (optional)"
-                      className="border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={studentForm.phone}
-                      onChange={(e) => setStudentForm({...studentForm, phone: e.target.value})}
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 mt-4">
-                    <div className="text-sm text-gray-600">
-                      Default password: <span className="font-mono">123456</span>
-                    </div>
-                    <div className="ml-auto flex gap-2">
-                      {studentForm.isEditing && (
-                        <button
-                          onClick={() => setStudentForm({
-                            docId: null,
-                            name: "",
-                            rollNo: "",
-                            course: "",
-                            semester: "",
-                            email: "",
-                            phone: "",
-                            password: "123456",
-                            isEditing: false,
-                          })}
-                          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        onClick={saveStudent}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
-                      >
-                        <FaPlus />
-                        {studentForm.isEditing ? "Update Student" : "Add Student"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                
 
                 {/* Search and Filters */}
                 <div className="bg-white rounded-xl border border-gray-300 p-4">
@@ -1912,12 +1744,59 @@ export default function AccountAdmin() {
                     </button>
                   </div>
                 </div>
+<div className="bg-white rounded-xl border border-gray-300 p-4">
+  <div className="flex flex-col md:flex-row gap-4">
+
+    {/* Search by fee type / description */}
+    <div className="flex-1">
+      <div className="relative">
+        <FaSearch className="absolute left-3 top-3 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search fee type or description..."
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+    </div>
+
+    {/* Filters */}
+    <div className="flex gap-2 flex-wrap">
+      {/* Semester Filter */}
+      <select
+        className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+        value={selectedSemesterFilter}
+        onChange={(e) => setSelectedSemesterFilter(e.target.value)}
+      >
+        <option value="all">All Semesters</option>
+        {[1,2,3,4,5,6,7,8].map((sem) => (
+          <option key={sem} value={sem}>Semester {sem}</option>
+        ))}
+      </select>
+
+      {/* Fee Type Filter */}
+      <select
+        className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+        value={feeStructureSearch}
+        onChange={(e) => setFeeStructureSearch(e.target.value)}
+      >
+        <option value="all">All Fee Types</option>
+        {Object.entries(FEE_TYPE_LABELS).map(([key, label]) => (
+          <option key={key} value={key}>{label}</option>
+        ))}
+      </select>
+    </div>
+  </div>
+</div>
+
+
 
                 {/* Fee Structures List */}
                 <div className="bg-white rounded-xl border border-gray-300 overflow-hidden">
                   <div className="p-4 border-b border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-800">
-                      Fee Structures ({feeStructures.length})
+                      Fee Structures ({filteredFeeStructures.length})
                     </h3>
                   </div>
                   
@@ -1935,7 +1814,7 @@ export default function AccountAdmin() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {feeStructures.map((fee) => {
+                        {filteredFeeStructures.map((fee) => {
                           const Icon = FEE_TYPE_ICONS[fee.feeType] || FaMoneyBillWave;
                           const isCompulsory = COMPULSORY_FEES.includes(fee.feeType);
                           
